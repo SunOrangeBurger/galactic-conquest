@@ -52,7 +52,7 @@ pub struct GalaxyConfig {
     pub seed: u64,
     pub systems_per_civ_min: u32,
     pub systems_per_civ_max: u32,
-    pub planets_per_civ: u32,
+    pub planets_per_two_systems: u32,
     pub coordinate_radius: u32,
     pub core_radius_percent: u32,
     pub spiral_turns: u32,
@@ -78,7 +78,7 @@ impl Default for GalaxyConfig {
             seed: 42,
             systems_per_civ_min: 18,
             systems_per_civ_max: 22,
-            planets_per_civ: 25,
+            planets_per_two_systems: 5,
             coordinate_radius: 1_000,
             core_radius_percent: 15,
             spiral_turns: 2,
@@ -175,15 +175,32 @@ fn generate_once(
     }
     link_lanes(&mut systems, &lanes);
 
-    let planet_count = (civ_ids.len() as u32)
-        .checked_mul(config.planets_per_civ)
+    let planet_count = system_count
+        .checked_mul(config.planets_per_two_systems)
         .ok_or(GenerationError::TooFewSystemsForArms)?;
-    let mut planets = generate_planets(config, &mut systems, planet_count, &mut rng);
+    let planet_count = planet_count.div_ceil(2);
+    let distances = all_pairs_distances(&systems, &lanes);
+    let candidate_hubs = choose_candidate_hubs(config, &distances, civ_ids.len())
+        .ok_or(GenerationError::NoFairHomeworldSet)?;
+    let mut planets = generate_planets(
+        config,
+        &mut systems,
+        planet_count,
+        &candidate_hubs,
+        &mut rng,
+    );
+    enrich_candidate_hubs(
+        config,
+        &systems,
+        &mut planets,
+        &candidate_hubs,
+        civ_ids.len(),
+    )?;
+    balance_home_neighborhoods(config, &mut planets, &candidate_hubs, &distances)?;
     let total_value: u64 = planets
         .iter()
         .map(|planet| u64::from(planet.base_yield))
         .sum();
-    let distances = all_pairs_distances(&systems, &lanes);
     let homes = select_homes(
         config,
         &systems,
@@ -321,6 +338,13 @@ fn q30_pow(base: u128, exponent: u32) -> u128 {
 }
 
 fn cordic_sin_cos(angle_millidegrees: i64) -> (i64, i64) {
+    match angle_millidegrees.rem_euclid(360_000) {
+        0 => return (0, Q30 as i64),
+        90_000 => return (Q30 as i64, 0),
+        180_000 => return (0, -(Q30 as i64)),
+        270_000 => return (-(Q30 as i64), 0),
+        _ => {}
+    }
     let mut angle = (i128::from(angle_millidegrees) * i128::from(PI_Q30) / 180_000) as i64;
     let tau = PI_Q30 * 2;
     angle %= tau;
@@ -494,7 +518,7 @@ fn place_hazards(
     config: &GalaxyConfig,
     systems: &[SystemState],
     core_radius: u32,
-    lanes: &mut [LaneState],
+    lanes: &mut Vec<LaneState>,
     rng: &mut StdRng,
 ) -> Result<Vec<HazardZone>, GenerationError> {
     let count = (systems.len() as u32).div_ceil(20);
@@ -523,7 +547,7 @@ fn place_hazards(
             {
                 continue;
             }
-            let mut candidate_lanes = lanes.to_vec();
+            let mut candidate_lanes = lanes.clone();
             let mut affected_lanes = 0;
             for lane in &mut candidate_lanes {
                 let a = systems[lane.a as usize].position;
@@ -540,18 +564,29 @@ fn place_hazards(
                     }
                 }
             }
-            if affected_lanes > 0
-                && (kind == HazardKind::Nebula || is_connected(systems.len(), &candidate_lanes))
-            {
-                lanes.clone_from_slice(&candidate_lanes);
-                hazards.push(HazardZone {
+            if affected_lanes > 0 {
+                let zone = HazardZone {
                     id: zone_id as u32,
                     kind,
                     center,
                     radius: config.hazard_radius,
-                });
-                placed = true;
-                break;
+                };
+                let mut candidate_hazards = hazards.clone();
+                candidate_hazards.push(zone.clone());
+                if ensure_clear_routes(
+                    config,
+                    systems,
+                    core_radius,
+                    &candidate_hazards,
+                    &mut candidate_lanes,
+                )
+                .is_ok()
+                {
+                    *lanes = candidate_lanes;
+                    hazards.push(zone);
+                    placed = true;
+                    break;
+                }
             }
         }
         if !placed {
@@ -565,14 +600,28 @@ fn generate_planets(
     config: &GalaxyConfig,
     systems: &mut [SystemState],
     total_planets: u32,
+    candidate_hubs: &[u32],
     rng: &mut StdRng,
 ) -> Vec<PlanetState> {
-    let mut counts = vec![total_planets / systems.len() as u32; systems.len()];
-    let remainder = (total_planets % systems.len() as u32) as usize;
+    let mut counts = vec![1_u32; systems.len()];
+    for hub in candidate_hubs {
+        counts[*hub as usize] = 4;
+    }
+    let mut remaining = total_planets.saturating_sub(counts.iter().sum::<u32>());
     let mut order: Vec<usize> = (0..systems.len()).collect();
     order.shuffle(rng);
-    for index in order.into_iter().take(remainder) {
-        counts[index] += 1;
+    while remaining > 0 {
+        let mut placed = false;
+        for index in &order {
+            if counts[*index] < 4 && remaining > 0 {
+                counts[*index] += 1;
+                remaining -= 1;
+                placed = true;
+            }
+        }
+        if !placed {
+            break;
+        }
     }
 
     let regional_factors: Vec<u32> = (0..4)
@@ -601,6 +650,211 @@ fn generate_planets(
         }
     }
     planets
+}
+
+fn choose_candidate_hubs(
+    config: &GalaxyConfig,
+    distances: &[Vec<u32>],
+    civ_count: usize,
+) -> Option<Vec<u32>> {
+    let mut best: Option<(u32, Vec<u32>)> = None;
+    for first in 0..distances.len() {
+        let mut hubs = vec![first as u32];
+        let mut minimum = u32::MAX;
+        while hubs.len() < civ_count {
+            let next = (0..distances.len())
+                .filter(|candidate| !hubs.contains(&(*candidate as u32)))
+                .filter_map(|candidate| {
+                    let nearest = hubs
+                        .iter()
+                        .map(|hub| distances[candidate][*hub as usize])
+                        .min()?;
+                    (nearest >= config.minimum_home_distance).then_some((nearest, candidate as u32))
+                })
+                .max_by(|a, b| a.0.cmp(&b.0).then_with(|| b.1.cmp(&a.1)));
+            let Some((distance, id)) = next else {
+                break;
+            };
+            minimum = minimum.min(distance);
+            hubs.push(id);
+        }
+        if hubs.len() == civ_count && best.as_ref().is_none_or(|current| minimum > current.0) {
+            best = Some((minimum, hubs));
+        }
+    }
+    best.map(|(_, hubs)| hubs)
+}
+
+fn enrich_candidate_hubs(
+    config: &GalaxyConfig,
+    systems: &[SystemState],
+    planets: &mut Vec<PlanetState>,
+    hubs: &[u32],
+    civ_count: usize,
+) -> Result<(), GenerationError> {
+    let total_value: u64 = planets
+        .iter()
+        .map(|planet| u64::from(planet.base_yield))
+        .sum();
+    let tolerance = territory_tolerance_units(
+        total_value,
+        config.starting_territory_milli,
+        config.territory_tolerance_percent,
+    );
+    let mut combinations = Vec::new();
+    for a in 0..4 {
+        for b in a..4 {
+            for c in b..4 {
+                for d in c..4 {
+                    let classes = [a, b, c, d];
+                    let value = classes
+                        .iter()
+                        .map(|class| u64::from(config.base_yields[*class]))
+                        .sum();
+                    let deviation = territory_deviation(
+                        value,
+                        total_value,
+                        civ_count,
+                        config.starting_territory_milli,
+                    );
+                    if deviation <= tolerance {
+                        combinations.push((deviation, classes));
+                    }
+                }
+            }
+        }
+    }
+    combinations.sort_unstable();
+    let hub_ids: std::collections::BTreeSet<u32> = hubs.iter().copied().collect();
+    for hub in hubs {
+        let ids = &systems[*hub as usize].planet_ids;
+        let mut applied = false;
+        for (_, classes) in &combinations {
+            let mut trial = planets.clone();
+            let mut possible = true;
+            for (planet_id, target_class) in ids.iter().zip(classes) {
+                let home_index = *planet_id as usize;
+                if richness_index(trial[home_index].richness) == *target_class {
+                    continue;
+                }
+                let donor = trial.iter().position(|planet| {
+                    !hub_ids.contains(&planet.system_id)
+                        && richness_index(planet.richness) == *target_class
+                });
+                let Some(donor_index) = donor else {
+                    possible = false;
+                    break;
+                };
+                let old = (
+                    trial[home_index].richness,
+                    trial[home_index].base_yield,
+                    trial[home_index].population_capacity,
+                );
+                trial[home_index].richness = trial[donor_index].richness;
+                trial[home_index].base_yield = trial[donor_index].base_yield;
+                trial[home_index].population_capacity = trial[donor_index].population_capacity;
+                trial[donor_index].richness = old.0;
+                trial[donor_index].base_yield = old.1;
+                trial[donor_index].population_capacity = old.2;
+            }
+            if possible {
+                *planets = trial;
+                applied = true;
+                break;
+            }
+        }
+        if !applied {
+            return Err(GenerationError::NoFairHomeworldSet);
+        }
+    }
+    Ok(())
+}
+
+fn balance_home_neighborhoods(
+    config: &GalaxyConfig,
+    planets: &mut [PlanetState],
+    hubs: &[u32],
+    distances: &[Vec<u32>],
+) -> Result<(), GenerationError> {
+    let hub_set: std::collections::BTreeSet<u32> = hubs.iter().copied().collect();
+    let membership: Vec<Vec<bool>> = planets
+        .iter()
+        .map(|planet| {
+            hubs.iter()
+                .map(|hub| {
+                    distances[*hub as usize][planet.system_id as usize] <= config.neighborhood_hops
+                })
+                .collect()
+        })
+        .collect();
+    let mut sums = vec![0_i64; hubs.len()];
+    for (planet, flags) in planets.iter().zip(&membership) {
+        for (index, included) in flags.iter().enumerate() {
+            if *included {
+                sums[index] += i64::from(planet.base_yield);
+            }
+        }
+    }
+    for _ in 0..128 {
+        let current = neighborhood_spread(&sums);
+        if current <= u128::from(config.neighborhood_yield_tolerance_percent) * 10_000 {
+            return Ok(());
+        }
+        let mut best: Option<(u128, usize, usize, Vec<i64>)> = None;
+        for first in 0..planets.len() {
+            if hub_set.contains(&planets[first].system_id) {
+                continue;
+            }
+            for second in first + 1..planets.len() {
+                if hub_set.contains(&planets[second].system_id)
+                    || planets[first].base_yield == planets[second].base_yield
+                    || membership[first] == membership[second]
+                {
+                    continue;
+                }
+                let delta =
+                    i64::from(planets[second].base_yield) - i64::from(planets[first].base_yield);
+                let mut trial = sums.clone();
+                for index in 0..hubs.len() {
+                    trial[index] += delta
+                        * (i64::from(membership[first][index])
+                            - i64::from(membership[second][index]));
+                }
+                let spread = neighborhood_spread(&trial);
+                if spread < current && best.as_ref().is_none_or(|value| spread < value.0) {
+                    best = Some((spread, first, second, trial));
+                }
+            }
+        }
+        let Some((_, first, second, next_sums)) = best else {
+            break;
+        };
+        let old = (
+            planets[first].richness,
+            planets[first].base_yield,
+            planets[first].population_capacity,
+        );
+        planets[first].richness = planets[second].richness;
+        planets[first].base_yield = planets[second].base_yield;
+        planets[first].population_capacity = planets[second].population_capacity;
+        planets[second].richness = old.0;
+        planets[second].base_yield = old.1;
+        planets[second].population_capacity = old.2;
+        sums = next_sums;
+    }
+    Err(GenerationError::NoFairHomeworldSet)
+}
+
+fn neighborhood_spread(sums: &[i64]) -> u128 {
+    let total: i64 = sums.iter().sum();
+    if total <= 0 {
+        return u128::MAX;
+    }
+    let count = sums.len() as i64;
+    sums.iter()
+        .map(|sum| (sum * count - total).unsigned_abs() as u128 * 1_000_000 / total as u128)
+        .max()
+        .unwrap_or(u128::MAX)
 }
 
 /// Ensures there is a connected route using only unblocked lanes that avoid
@@ -767,13 +1021,35 @@ fn select_homes(
                 .sum()
         })
         .collect();
+    let territory_tolerance = territory_tolerance_units(
+        total_value,
+        config.starting_territory_milli,
+        config.territory_tolerance_percent,
+    );
+    let eligible: Vec<bool> = yields
+        .iter()
+        .map(|value| {
+            territory_deviation(
+                *value,
+                total_value,
+                civ_count,
+                config.starting_territory_milli,
+            ) <= territory_tolerance
+        })
+        .collect();
+    if eligible.iter().filter(|candidate| **candidate).count() < civ_count {
+        return None;
+    }
     let mut best: Option<(u32, u64, u64, Vec<u32>)> = None;
     for first in 0..systems.len() {
+        if !eligible[first] {
+            continue;
+        }
         let mut chosen = vec![first as u32];
         let mut minimum_distance = u32::MAX;
         while chosen.len() < civ_count {
             let next = (0..systems.len())
-                .filter(|candidate| !chosen.contains(&(*candidate as u32)))
+                .filter(|candidate| eligible[*candidate] && !chosen.contains(&(*candidate as u32)))
                 .filter_map(|candidate| {
                     let nearest = chosen
                         .iter()
@@ -830,6 +1106,15 @@ fn select_homes(
             })
             .max()
             .unwrap_or(u64::MAX);
+        if !chosen.iter().all(|id| {
+            percent_deviation_within(
+                neighborhoods[*id as usize],
+                neighborhood_mean,
+                config.neighborhood_yield_tolerance_percent,
+            )
+        }) {
+            continue;
+        }
         let score = (
             minimum_distance,
             neighborhood_deviation,
@@ -844,30 +1129,7 @@ fn select_homes(
             best = Some(score);
         }
     }
-    let (minimum_distance, _neighborhood_deviation, t0_deviation, homes) = best?;
-    let neighborhood_mean = homes
-        .iter()
-        .map(|id| neighborhoods[*id as usize])
-        .sum::<u64>()
-        / homes.len() as u64;
-    if minimum_distance < config.minimum_home_distance
-        || !homes.iter().all(|id| {
-            percent_deviation_within(
-                neighborhoods[*id as usize],
-                neighborhood_mean,
-                config.neighborhood_yield_tolerance_percent,
-            )
-        })
-        || t0_deviation
-            > territory_tolerance_units(
-                total_value,
-                config.starting_territory_milli,
-                config.territory_tolerance_percent,
-            )
-    {
-        return None;
-    }
-    Some(homes)
+    best.map(|(_, _, _, homes)| homes)
 }
 
 fn home_candidate_tie_score(

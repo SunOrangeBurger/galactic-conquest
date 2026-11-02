@@ -8,6 +8,7 @@ tuneable parameters for the fairness audit.
 | Item | Proposed default | Rationale |
 | --- | --- | --- |
 | Systems per civ | Seeded uniform integer 18–22 | The owner approved this range to provide enough candidate home systems for eight starts at five-hop spacing under the 700-unit lane cap and degree 3–5. |
+| Planets per civ | About 2.5 per system, or 45–55 per civ | The owner approved scaling planet count to keep viable T0 = 150 home candidates at the higher system density. |
 | Coordinate radius | 1,000 integer units | Gives a simple bounded coordinate plane; core radius follows the specified 15% rule (150 units). |
 | Spiral shape | Four arms over two turns, with seeded integer jitter of at most 25 units | Makes the specified logarithmic four-arm layout concrete while keeping coordinates integer-only. |
 | Maximum lane length | 700 units | Allows adjacent outer systems on the approved two-turn spiral to connect at 8-civ map scale. |
@@ -43,10 +44,12 @@ fairness. The owner approved this procedure:
    lane whose segment intersects its radius; a nebula marks each lane whose
    segment intersects it. Reject and redraw a zone that affects no lane; a
    void zone is also redrawn if it disconnects the graph.
-4. Generate exactly 25 planets per 10-system civ block: assign two per
-   system, then give one extra planet to five systems selected by seeded
-   shuffle. For other counts, distribute the remainder by the same seeded
-   shuffle. This keeps the requested approximate 2.5 average.
+4. Generate `ceil(system_count × 5 / 2)` planets, with 1–4 per system. Reserve
+   four planets on widely spaced candidate hubs, then distribute the remainder
+   by seeded shuffle. Swap richness classes with other planets to make the hubs
+   T0-eligible while preserving galaxy-wide richness totals. Balance their
+   three-hop neighborhood yields by deterministic richness swaps, then run
+   final home selection and fairness checks.
 5. Choose home systems with deterministic farthest-point selection, stable-id
    tie breaks, and a five-hop minimum. Among feasible sets, prefer the set
    minimizing the largest absolute home-neighborhood-yield deviation, then

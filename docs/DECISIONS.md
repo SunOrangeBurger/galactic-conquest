@@ -39,6 +39,13 @@
   candidates at eight civs. The owner approved a seeded uniform map density of
   18–22 systems per civ on 2026-11-02; the attempt sub-seed determines the
   selected count and therefore makes it reproducible.
+- To preserve viable T0 = 150 homes at this density, the owner approved
+  scaling planet count with system count at about 2.5 planets per system
+  (45–55 planets per civ) on 2026-11-02.
+- The owner approved constructing T0-eligible home candidates while keeping
+  four planets per candidate and the galaxy-wide richness totals. The generator
+  swaps richness classes and balances three-hop neighborhood yields before
+  final home selection and fairness validation.
 - `params.toml` is hashed as its exact UTF-8 file bytes using FNV-1a 64-bit.
   This deliberately preserves formatting as part of the configuration
   identity and avoids nondeterministic map iteration. The hash is an

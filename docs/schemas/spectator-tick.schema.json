@@ -1,0 +1,400 @@
+{
+  "$defs": {
+    "Breakdown": {
+      "additionalProperties": false,
+      "properties": {
+        "economy": {
+          "type": "number"
+        },
+        "military": {
+          "type": "number"
+        },
+        "population": {
+          "type": "number"
+        },
+        "territory": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "territory",
+        "military",
+        "economy",
+        "population"
+      ],
+      "type": "object"
+    },
+    "Civ": {
+      "additionalProperties": false,
+      "properties": {
+        "alive": {
+          "type": "boolean"
+        },
+        "archetype": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "civilization_score": {
+          "type": "number"
+        },
+        "color": {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "credits": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "elimination_tick": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "planets_owned": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "score_breakdown": {
+          "$ref": "#/$defs/Breakdown"
+        },
+        "territory_share": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "war_strength": {
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "color",
+        "alive",
+        "civilization_score",
+        "score_breakdown",
+        "planets_owned",
+        "territory_share",
+        "war_strength",
+        "credits",
+        "archetype"
+      ],
+      "type": "object"
+    },
+    "Dominance": {
+      "additionalProperties": false,
+      "properties": {
+        "leader": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "share": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "threshold": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "leader",
+        "share",
+        "threshold"
+      ],
+      "type": "object"
+    },
+    "Event": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "parties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "planet_id": {
+              "type": "string"
+            },
+            "strength_after": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "strength_before": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "type": {
+              "const": "battle"
+            },
+            "winner": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "planet_id",
+            "parties",
+            "strength_before",
+            "strength_after"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "owner": {
+              "type": "string"
+            },
+            "planet_id": {
+              "type": "string"
+            },
+            "type": {
+              "const": "planet_colonized"
+            }
+          },
+          "required": [
+            "type",
+            "planet_id",
+            "owner"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "owner": {
+              "type": "string"
+            },
+            "planet_id": {
+              "type": "string"
+            },
+            "type": {
+              "const": "planet_captured"
+            }
+          },
+          "required": [
+            "type",
+            "planet_id",
+            "owner"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "civ": {
+              "type": "string"
+            },
+            "type": {
+              "const": "civ_eliminated"
+            }
+          },
+          "required": [
+            "type",
+            "civ"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Fleet": {
+      "additionalProperties": false,
+      "properties": {
+        "fleet_id": {
+          "type": "string"
+        },
+        "in_transit": {
+          "$ref": "#/$defs/Transit"
+        },
+        "kind": {
+          "enum": [
+            "war",
+            "scout"
+          ]
+        },
+        "owner": {
+          "type": "string"
+        },
+        "strength": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "system_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "fleet_id",
+        "owner",
+        "kind",
+        "strength"
+      ],
+      "type": "object"
+    },
+    "Match": {
+      "additionalProperties": false,
+      "properties": {
+        "civs_alive": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "delay_ticks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "state": {
+          "enum": [
+            "lobby",
+            "smoke",
+            "armed",
+            "running",
+            "paused",
+            "finished"
+          ]
+        },
+        "time_remaining_ms": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "state",
+        "time_remaining_ms",
+        "civs_alive",
+        "delay_ticks"
+      ],
+      "type": "object"
+    },
+    "Planet": {
+      "additionalProperties": false,
+      "properties": {
+        "garrison": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "owner": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "planet_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "planet_id",
+        "owner",
+        "garrison"
+      ],
+      "type": "object"
+    },
+    "Transit": {
+      "additionalProperties": false,
+      "properties": {
+        "elapsed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lane_id": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "total": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "lane_id",
+        "to",
+        "elapsed",
+        "total"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "0.4"
+    },
+    "civs": {
+      "items": {
+        "$ref": "#/$defs/Civ"
+      },
+      "type": "array"
+    },
+    "dominance": {
+      "$ref": "#/$defs/Dominance"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/Event"
+      },
+      "type": "array"
+    },
+    "fleets": {
+      "items": {
+        "$ref": "#/$defs/Fleet"
+      },
+      "type": "array"
+    },
+    "game_year": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "match": {
+      "$ref": "#/$defs/Match"
+    },
+    "planets": {
+      "items": {
+        "$ref": "#/$defs/Planet"
+      },
+      "type": "array"
+    },
+    "tick": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "api_version",
+    "tick",
+    "game_year",
+    "match",
+    "civs",
+    "planets",
+    "fleets",
+    "events",
+    "dominance"
+  ],
+  "title": "SpectatorTick",
+  "type": "object"
+}

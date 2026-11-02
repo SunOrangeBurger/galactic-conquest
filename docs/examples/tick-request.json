@@ -1,0 +1,31 @@
+{
+  "api_version": "0.4",
+  "tick": 14,
+  "game_year": 14,
+  "deadline_ms": 5000,
+  "match": {"state": "running", "systems_total": 120, "planets_total": 300, "civs_alive": 12},
+  "your_civilization": {
+    "id": "team_07", "archetype": "industrialist", "civilization_score": 412.6,
+    "resources": {"credits": 4200, "income_per_tick": 61.2},
+    "score_breakdown": {"territory": 160, "military": 450, "economy": 650, "population": 650},
+    "multipliers": {"military": 1.0, "economy": 1.04, "population": 1.0}
+  },
+  "visible_state": {
+    "owned_planets": [{"planet_id":"P4","system_id":"S2","richness":"rich","base_yield":14,"pop":900,"pop_capacity":1000,"garrison":45,"garrison_target":45}],
+    "systems": [
+      {"system_id":"S9","tier":"snapshot","last_seen_tick":11,"planets":[{"planet_id":"P31","richness":"average","owner":"team_03","garrison":80}],"lanes":[{"lane_id":"L40","to":"S12","travel_ticks":3,"hazard":"none"}]},
+      {"system_id":"S15","tier":"adjacent_fog","lanes":[{"lane_id":"L52","to":"S2","travel_ticks_est":[2,4],"hazard":"none"}]}
+    ],
+    "your_fleets": [
+      {"fleet_id":"f3","kind":"war","strength":520,"system_id":"S2","busy":false},
+      {"fleet_id":"f5","kind":"scout","in_transit":{"lane_id":"L40","to":"S9","arrives_tick":16},"busy":true}
+    ],
+    "visible_enemy_fleets": [{"fleet_id":"f88","owner":"team_03","strength":300,"system_id":"S9"}],
+    "build_queue": [{"planet_id":"P4","unit":"warship","quantity":100,"spawns_tick":15}]
+  },
+  "last_tick_report": {
+    "tick":13,
+    "actions":[{"index":0,"status":"ok"},{"index":1,"status":"rejected","code":"insufficient_credits","message":"needs 150, have 90"}],
+    "events":[{"type":"battle","planet_id":"P19","winner":"team_07","your_strength_before":900,"your_strength_after":410}]
+  }
+}

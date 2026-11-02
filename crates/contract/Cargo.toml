@@ -1,0 +1,12 @@
+[package]
+name = "contract"
+edition.workspace = true
+version.workspace = true
+
+# NOTE: keep this crate's dependency list minimal. This is the crate handed
+# directly to hackathon participants as the literal source of truth for the
+# API contract (see Section 3.2 of the design doc). Anything engine-internal
+# does NOT belong here.
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

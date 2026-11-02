@@ -1,0 +1,12 @@
+[package]
+name = "sim"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+contract = { path = "../contract" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rand = { workspace = true }
+tracing = { workspace = true }
+blake3 = { workspace = true }

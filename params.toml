@@ -1,0 +1,130 @@
+# Phase 0 tuning parameters. Values follow specification v0.4 sections 4–9.
+# B is derived at ARMED as a Balanced civ's tick-0 home income.
+
+[match]
+minimum_civs = 8
+maximum_civs = 20
+duration_seconds = 14400
+deadline_ms = 5000
+
+[galaxy]
+arms = 4
+systems_per_civ_min = 18
+systems_per_civ_max = 22
+planets_per_civ = 25
+coordinate_radius_units = 1000
+spiral_turns = 2
+system_jitter_max_units = 25
+maximum_lane_length_units = 700
+hazard_zone_radius_units = 50
+hazard_center_method = "seeded-uniform-in-galaxy-disc-outside-core"
+clear_bypass_policy = "connect-hazard-free-core-safe-lane-graph"
+bridge_lanes_per_adjacent_arm_pair = 2
+population_capacity_poor = 1000
+population_capacity_average = 2000
+population_capacity_rich = 3500
+population_capacity_exceptional = 6000
+regional_richness_odds = "progressive-by-richness-tier-then-renormalize"
+lane_speed_unit = "ceil-median-candidate-lane-length-divided-by-two"
+selection_tie_break = "ascending-stable-id"
+generation_retry_limit = 10000
+subseed_rule = "match-seed-plus-attempt-index"
+minimum_planets_per_system = 1
+maximum_planets_per_system = 4
+minimum_lanes_per_system = 3
+maximum_lanes_per_system = 5
+minimum_lane_travel_ticks = 1
+maximum_base_lane_travel_ticks = 6
+maximum_nebula_lane_travel_ticks = 8
+typical_lane_travel_ticks = 2
+homeworld_minimum_distance_hops = 5
+home_neighborhood_hops = 3
+home_neighborhood_yield_tolerance_percent = 10
+start_territory_target = 150
+start_territory_tolerance_percent = 5
+core_radius_percent = 15
+void_hazard_per_system_denominator = 40
+nebula_hazard_per_system_denominator = 40
+nebula_travel_ticks = 2
+nebula_attrition_percent_per_tick = 5
+richness_poor_percent = 40
+richness_average_percent = 35
+richness_rich_percent = 20
+richness_exceptional_percent = 5
+regional_multiplier_min_milli = 800
+regional_multiplier_max_milli = 1300
+
+[economy]
+poor_yield_credits = 4
+average_yield_credits = 8
+rich_yield_credits = 14
+exceptional_yield_credits = 24
+colonize_cost_credits = 150
+warship_cost_per_strength_credits = 5
+scout_cost_credits = 40
+investment_diminishing_constant = 3000
+colonized_planet_start_population_percent = 20
+population_growth_percent_per_tick = 5
+conquered_population_retained_percent = 50
+
+[combat]
+step_count = 256
+step_size = "calibrate-in-M4"
+defender_multiplier_milli = 1250
+strength_exponent_milli = 1500
+
+[scoring]
+starting_civ_score = 400
+territory_weight_percent = 40
+military_weight_percent = 25
+economy_weight_percent = 20
+population_weight_percent = 15
+military_half_saturation = 1000
+population_half_saturation = 2000
+economy_constant = "balanced-civ-tick-0-home-income"
+
+[[archetypes]]
+id = "warlord"
+military_score = 700
+economy_score = 450
+population_score = 500
+starting_extras = "largest-starting-fleet"
+
+[[archetypes]]
+id = "industrialist"
+military_score = 450
+economy_score = 650
+population_score = 650
+starting_extras = "highest-income-multiplier"
+
+[[archetypes]]
+id = "populist"
+military_score = 480
+economy_score = 500
+population_score = 800
+starting_extras = "largest-garrisons"
+
+[[archetypes]]
+id = "explorer"
+military_score = 500
+economy_score = 550
+population_score = 700
+starting_extras = "three-starting-scouts"
+
+[[archetypes]]
+id = "balanced"
+military_score = 600
+economy_score = 500
+population_score = 600
+starting_extras = "none"
+
+[spectator]
+audience_delay_ticks = 10
+connection_limit = 50
+
+[reliability]
+checkpoint_interval_ticks = 20
+request_body_limit_bytes = 262144
+requests_per_second_per_token = 10
+long_poll_limit_seconds = 30
+connections_per_token = 3

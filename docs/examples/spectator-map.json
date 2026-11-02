@@ -1,0 +1,9 @@
+{
+  "api_version":"0.4",
+  "systems":[{"id":"S2","x":25,"y":10,"region":1}],
+  "lanes":[{"id":"L40","a":"S2","b":"S9","travel_ticks":3,"hazard":"none","blocked":false}],
+  "hazards":[{"id":"H1","kind":"nebula","x":40,"y":20,"radius":8}],
+  "core":{"x":0,"y":0,"radius":15},
+  "planets":[{"id":"P4","system_id":"S2","richness":"rich","base_yield":14}],
+  "civs":[{"id":"team_07","name":"Team Nova","color":3}]
+}

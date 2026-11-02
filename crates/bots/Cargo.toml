@@ -1,0 +1,8 @@
+[package]
+name = "bots"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+contract = { path = "../contract" }
+rand = { workspace = true }

@@ -1,0 +1,224 @@
+{
+  "$defs": {
+    "Civ": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "color"
+      ],
+      "type": "object"
+    },
+    "Core": {
+      "additionalProperties": false,
+      "properties": {
+        "radius": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "radius"
+      ],
+      "type": "object"
+    },
+    "HazardZone": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "void",
+            "nebula"
+          ]
+        },
+        "radius": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "x",
+        "y",
+        "radius"
+      ],
+      "type": "object"
+    },
+    "Lane": {
+      "additionalProperties": false,
+      "properties": {
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "blocked": {
+          "type": "boolean"
+        },
+        "hazard": {
+          "enum": [
+            "none",
+            "slow",
+            "void",
+            "nebula"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "travel_ticks": {
+          "maximum": 8,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "a",
+        "b",
+        "travel_ticks",
+        "hazard",
+        "blocked"
+      ],
+      "type": "object"
+    },
+    "Planet": {
+      "additionalProperties": false,
+      "properties": {
+        "base_yield": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "richness": {
+          "enum": [
+            "poor",
+            "average",
+            "rich",
+            "exceptional"
+          ]
+        },
+        "system_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "system_id",
+        "richness",
+        "base_yield"
+      ],
+      "type": "object"
+    },
+    "System": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "region": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "x",
+        "y",
+        "region"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "0.4"
+    },
+    "civs": {
+      "items": {
+        "$ref": "#/$defs/Civ"
+      },
+      "type": "array"
+    },
+    "core": {
+      "$ref": "#/$defs/Core"
+    },
+    "hazards": {
+      "items": {
+        "$ref": "#/$defs/HazardZone"
+      },
+      "type": "array"
+    },
+    "lanes": {
+      "items": {
+        "$ref": "#/$defs/Lane"
+      },
+      "type": "array"
+    },
+    "planets": {
+      "items": {
+        "$ref": "#/$defs/Planet"
+      },
+      "type": "array"
+    },
+    "systems": {
+      "items": {
+        "$ref": "#/$defs/System"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "api_version",
+    "systems",
+    "lanes",
+    "hazards",
+    "core",
+    "planets",
+    "civs"
+  ],
+  "title": "SpectatorMap",
+  "type": "object"
+}

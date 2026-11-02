@@ -1,0 +1,162 @@
+{
+  "$defs": {
+    "AgentAction": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "target": {
+              "enum": [
+                "military",
+                "economy",
+                "population"
+              ]
+            },
+            "type": {
+              "const": "invest_resources"
+            }
+          },
+          "required": [
+            "type",
+            "target",
+            "amount"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "planet_id": {
+              "type": "string"
+            },
+            "quantity": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "type": {
+              "const": "build"
+            },
+            "unit": {
+              "enum": [
+                "warship",
+                "scout"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "planet_id",
+            "unit",
+            "quantity"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "fleet_id": {
+              "type": "string"
+            },
+            "target_system": {
+              "type": "string"
+            },
+            "type": {
+              "const": "move_fleet"
+            }
+          },
+          "required": [
+            "type",
+            "fleet_id",
+            "target_system"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "fleet_id": {
+              "type": "string"
+            },
+            "target_planet": {
+              "type": "string"
+            },
+            "type": {
+              "const": "attack"
+            }
+          },
+          "required": [
+            "type",
+            "fleet_id",
+            "target_planet"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "fleet_id": {
+              "type": "string"
+            },
+            "target_system": {
+              "type": "string"
+            },
+            "type": {
+              "const": "scout"
+            }
+          },
+          "required": [
+            "type",
+            "fleet_id",
+            "target_system"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "fleet_id": {
+              "type": "string"
+            },
+            "target_planet": {
+              "type": "string"
+            },
+            "type": {
+              "const": "colonize"
+            }
+          },
+          "required": [
+            "type",
+            "fleet_id",
+            "target_planet"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "$id": "https://galactic-conquest.invalid/schema/agent-response.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/AgentAction"
+      },
+      "maxItems": 200,
+      "type": "array"
+    },
+    "tick": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "tick",
+    "actions"
+  ],
+  "title": "AgentResponse",
+  "type": "object"
+}

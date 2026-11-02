@@ -1,0 +1,8 @@
+[package]
+name = "schema-check"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+contract = { path = "../../crates/contract" }
+serde_json = { workspace = true }

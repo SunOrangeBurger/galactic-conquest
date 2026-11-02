@@ -1,0 +1,11 @@
+{
+  "tick": 14,
+  "actions": [
+    {"type":"invest_resources","target":"military","amount":150},
+    {"type":"build","planet_id":"P4","unit":"warship","quantity":100},
+    {"type":"move_fleet","fleet_id":"f3","target_system":"S9"},
+    {"type":"attack","fleet_id":"f1","target_planet":"P19"},
+    {"type":"scout","fleet_id":"f5","target_system":"S15"},
+    {"type":"colonize","fleet_id":"f2","target_planet":"P7"}
+  ]
+}

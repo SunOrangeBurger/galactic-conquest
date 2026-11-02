@@ -1,0 +1,7 @@
+[package]
+name = "params-check"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+toml = { workspace = true }

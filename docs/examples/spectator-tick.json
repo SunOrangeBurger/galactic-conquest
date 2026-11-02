@@ -1,0 +1,11 @@
+{
+  "api_version":"0.4",
+  "tick":214,
+  "game_year":214,
+  "match":{"state":"running","time_remaining_ms":9211000,"civs_alive":11,"delay_ticks":10},
+  "civs":[{"id":"team_07","name":"Team Nova","color":3,"alive":true,"civilization_score":512.347,"score_breakdown":{"territory":340,"military":560,"economy":610,"population":640},"planets_owned":31,"territory_share":0.118,"war_strength":2240,"credits":1810,"archetype":null}],
+  "planets":[{"planet_id":"P4","owner":"team_07","garrison":45}],
+  "fleets":[{"fleet_id":"f3","owner":"team_07","kind":"war","strength":520,"system_id":"S2"}],
+  "events":[{"type":"planet_colonized","planet_id":"P7","owner":"team_12"}],
+  "dominance":{"leader":"team_07","share":0.118,"threshold":0.9}
+}

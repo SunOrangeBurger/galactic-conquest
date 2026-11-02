@@ -1,0 +1,632 @@
+{
+  "$defs": {
+    "ActionErrorCode": {
+      "enum": [
+        "too_many_actions",
+        "unknown_action_type",
+        "invalid_field",
+        "target_not_found_or_not_visible",
+        "not_owner",
+        "fleet_busy",
+        "fleet_not_in_system",
+        "fleet_wrong_kind",
+        "conflicting_orders",
+        "no_path",
+        "insufficient_credits"
+      ]
+    },
+    "ActionReport": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ActionErrorCode"
+        },
+        "index": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "rejected"
+          ]
+        }
+      },
+      "required": [
+        "index",
+        "status"
+      ],
+      "type": "object"
+    },
+    "AgentEvent": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "planet_id": {
+              "type": "string"
+            },
+            "type": {
+              "const": "battle"
+            },
+            "winner": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "your_strength_after": {
+              "type": "number"
+            },
+            "your_strength_before": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "type",
+            "planet_id",
+            "your_strength_before",
+            "your_strength_after"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "planet_id": {
+              "type": "string"
+            },
+            "type": {
+              "const": "planet_colonized"
+            }
+          },
+          "required": [
+            "type",
+            "planet_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "planet_id": {
+              "type": "string"
+            },
+            "type": {
+              "const": "planet_captured"
+            }
+          },
+          "required": [
+            "type",
+            "planet_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "civ": {
+              "type": "string"
+            },
+            "type": {
+              "const": "civ_eliminated"
+            }
+          },
+          "required": [
+            "type",
+            "civ"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "BuildQueueItem": {
+      "additionalProperties": false,
+      "properties": {
+        "planet_id": {
+          "type": "string"
+        },
+        "quantity": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "spawns_tick": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unit": {
+          "enum": [
+            "warship",
+            "scout"
+          ]
+        }
+      },
+      "required": [
+        "planet_id",
+        "unit",
+        "quantity",
+        "spawns_tick"
+      ],
+      "type": "object"
+    },
+    "CivilizationView": {
+      "additionalProperties": false,
+      "properties": {
+        "archetype": {
+          "type": "string"
+        },
+        "civilization_score": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "multipliers": {
+          "$ref": "#/$defs/Multipliers"
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources"
+        },
+        "score_breakdown": {
+          "$ref": "#/$defs/Scores"
+        }
+      },
+      "required": [
+        "id",
+        "archetype",
+        "civilization_score",
+        "resources",
+        "score_breakdown",
+        "multipliers"
+      ],
+      "type": "object"
+    },
+    "EnemyFleet": {
+      "additionalProperties": false,
+      "properties": {
+        "fleet_id": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "strength": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "system_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "fleet_id",
+        "owner",
+        "strength",
+        "system_id"
+      ],
+      "type": "object"
+    },
+    "InTransit": {
+      "additionalProperties": false,
+      "properties": {
+        "arrives_tick": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lane_id": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "lane_id",
+        "to",
+        "arrives_tick"
+      ],
+      "type": "object"
+    },
+    "LaneIntel": {
+      "additionalProperties": false,
+      "properties": {
+        "hazard": {
+          "enum": [
+            "none",
+            "slow",
+            "void",
+            "nebula"
+          ]
+        },
+        "lane_id": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "travel_ticks": {
+          "maximum": 255,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "travel_ticks_est": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "lane_id",
+        "to",
+        "hazard"
+      ],
+      "type": "object"
+    },
+    "MatchView": {
+      "additionalProperties": false,
+      "properties": {
+        "civs_alive": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "planets_total": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "state": {
+          "enum": [
+            "lobby",
+            "smoke",
+            "armed",
+            "running",
+            "paused",
+            "finished"
+          ]
+        },
+        "systems_total": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "state",
+        "systems_total",
+        "planets_total",
+        "civs_alive"
+      ],
+      "type": "object"
+    },
+    "Multipliers": {
+      "additionalProperties": false,
+      "properties": {
+        "economy": {
+          "type": "number"
+        },
+        "military": {
+          "type": "number"
+        },
+        "population": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "military",
+        "economy",
+        "population"
+      ],
+      "type": "object"
+    },
+    "OwnedPlanet": {
+      "additionalProperties": false,
+      "properties": {
+        "base_yield": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "garrison": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "garrison_target": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "planet_id": {
+          "type": "string"
+        },
+        "pop": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "pop_capacity": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "richness": {
+          "$ref": "#/$defs/Richness"
+        },
+        "system_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "planet_id",
+        "system_id",
+        "richness",
+        "base_yield",
+        "pop",
+        "pop_capacity",
+        "garrison",
+        "garrison_target"
+      ],
+      "type": "object"
+    },
+    "PlanetSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "garrison": {
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "owner": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "planet_id": {
+          "type": "string"
+        },
+        "richness": {
+          "$ref": "#/$defs/Richness"
+        }
+      },
+      "required": [
+        "planet_id",
+        "richness"
+      ],
+      "type": "object"
+    },
+    "Resources": {
+      "additionalProperties": false,
+      "properties": {
+        "credits": {
+          "type": "integer"
+        },
+        "income_per_tick": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "credits",
+        "income_per_tick"
+      ],
+      "type": "object"
+    },
+    "Richness": {
+      "enum": [
+        "poor",
+        "average",
+        "rich",
+        "exceptional"
+      ]
+    },
+    "Scores": {
+      "additionalProperties": false,
+      "properties": {
+        "economy": {
+          "type": "number"
+        },
+        "military": {
+          "type": "number"
+        },
+        "population": {
+          "type": "number"
+        },
+        "territory": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "territory",
+        "military",
+        "economy",
+        "population"
+      ],
+      "type": "object"
+    },
+    "SystemIntel": {
+      "additionalProperties": false,
+      "properties": {
+        "lanes": {
+          "items": {
+            "$ref": "#/$defs/LaneIntel"
+          },
+          "type": "array"
+        },
+        "last_seen_tick": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "planets": {
+          "items": {
+            "$ref": "#/$defs/PlanetSnapshot"
+          },
+          "type": "array"
+        },
+        "system_id": {
+          "type": "string"
+        },
+        "tier": {
+          "enum": [
+            "snapshot",
+            "adjacent_fog",
+            "scouted",
+            "owned"
+          ]
+        }
+      },
+      "required": [
+        "system_id",
+        "tier",
+        "lanes"
+      ],
+      "type": "object"
+    },
+    "TickReport": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/ActionReport"
+          },
+          "type": "array"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/AgentEvent"
+          },
+          "type": "array"
+        },
+        "tick": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tick",
+        "actions",
+        "events"
+      ],
+      "type": "object"
+    },
+    "VisibleState": {
+      "additionalProperties": false,
+      "properties": {
+        "build_queue": {
+          "items": {
+            "$ref": "#/$defs/BuildQueueItem"
+          },
+          "type": "array"
+        },
+        "owned_planets": {
+          "items": {
+            "$ref": "#/$defs/OwnedPlanet"
+          },
+          "type": "array"
+        },
+        "systems": {
+          "items": {
+            "$ref": "#/$defs/SystemIntel"
+          },
+          "type": "array"
+        },
+        "visible_enemy_fleets": {
+          "items": {
+            "$ref": "#/$defs/EnemyFleet"
+          },
+          "type": "array"
+        },
+        "your_fleets": {
+          "items": {
+            "$ref": "#/$defs/YourFleet"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "owned_planets",
+        "systems",
+        "your_fleets",
+        "visible_enemy_fleets",
+        "build_queue"
+      ],
+      "type": "object"
+    },
+    "YourFleet": {
+      "additionalProperties": false,
+      "properties": {
+        "busy": {
+          "type": "boolean"
+        },
+        "fleet_id": {
+          "type": "string"
+        },
+        "in_transit": {
+          "$ref": "#/$defs/InTransit"
+        },
+        "kind": {
+          "enum": [
+            "war",
+            "scout"
+          ]
+        },
+        "strength": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "system_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "fleet_id",
+        "kind",
+        "busy"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://galactic-conquest.invalid/schema/tick-request.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "0.4"
+    },
+    "deadline_ms": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "game_year": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "last_tick_report": {
+      "$ref": "#/$defs/TickReport"
+    },
+    "match": {
+      "$ref": "#/$defs/MatchView"
+    },
+    "tick": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "visible_state": {
+      "$ref": "#/$defs/VisibleState"
+    },
+    "your_civilization": {
+      "$ref": "#/$defs/CivilizationView"
+    }
+  },
+  "required": [
+    "api_version",
+    "tick",
+    "game_year",
+    "deadline_ms",
+    "match",
+    "your_civilization",
+    "visible_state"
+  ],
+  "title": "TickRequest",
+  "type": "object"
+}

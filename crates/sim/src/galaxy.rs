@@ -660,23 +660,24 @@ fn choose_candidate_hubs(
     let mut best: Option<(u32, Vec<u32>)> = None;
     for first in 0..distances.len() {
         let mut hubs = vec![first as u32];
+        let mut nearest = distances[first].clone();
         let mut minimum = u32::MAX;
         while hubs.len() < civ_count {
-            let next = (0..distances.len())
-                .filter(|candidate| !hubs.contains(&(*candidate as u32)))
-                .filter_map(|candidate| {
-                    let nearest = hubs
-                        .iter()
-                        .map(|hub| distances[candidate][*hub as usize])
-                        .min()?;
-                    (nearest >= config.minimum_home_distance).then_some((nearest, candidate as u32))
-                })
+            let next = nearest
+                .iter()
+                .copied()
+                .enumerate()
+                .filter(|(_, distance)| *distance > 0 && *distance >= config.minimum_home_distance)
+                .map(|(candidate, distance)| (distance, candidate as u32))
                 .max_by(|a, b| a.0.cmp(&b.0).then_with(|| b.1.cmp(&a.1)));
             let Some((distance, id)) = next else {
                 break;
             };
             minimum = minimum.min(distance);
             hubs.push(id);
+            for (nearest, distance) in nearest.iter_mut().zip(&distances[id as usize]) {
+                *nearest = (*nearest).min(*distance);
+            }
         }
         if hubs.len() == civ_count && best.as_ref().is_none_or(|current| minimum > current.0) {
             best = Some((minimum, hubs));
@@ -796,33 +797,43 @@ fn balance_home_neighborhoods(
         }
     }
     for _ in 0..128 {
-        let current = neighborhood_spread(&sums);
-        if current <= u128::from(config.neighborhood_yield_tolerance_percent) * 10_000 {
+        let current = neighborhood_imbalance(&sums, config.neighborhood_yield_tolerance_percent);
+        if current == 0 {
             return Ok(());
         }
+        // Planets with the same yield and neighborhood membership have the
+        // same effect on a swap. Keep the first to preserve the tie break.
+        let mut seen = std::collections::BTreeSet::new();
+        let candidates: Vec<_> = planets
+            .iter()
+            .enumerate()
+            .filter(|(index, planet)| {
+                !hub_set.contains(&planet.system_id)
+                    && seen.insert((planet.base_yield, &membership[*index]))
+            })
+            .map(|(index, _)| index)
+            .collect();
         let mut best: Option<(u128, usize, usize, Vec<i64>)> = None;
-        for first in 0..planets.len() {
-            if hub_set.contains(&planets[first].system_id) {
-                continue;
-            }
-            for second in first + 1..planets.len() {
-                if hub_set.contains(&planets[second].system_id)
-                    || planets[first].base_yield == planets[second].base_yield
+        let mut trial = sums.clone();
+        for (index, &first) in candidates.iter().enumerate() {
+            for &second in &candidates[index + 1..] {
+                if planets[first].base_yield == planets[second].base_yield
                     || membership[first] == membership[second]
                 {
                     continue;
                 }
                 let delta =
                     i64::from(planets[second].base_yield) - i64::from(planets[first].base_yield);
-                let mut trial = sums.clone();
                 for index in 0..hubs.len() {
-                    trial[index] += delta
-                        * (i64::from(membership[first][index])
-                            - i64::from(membership[second][index]));
+                    trial[index] = sums[index]
+                        + delta
+                            * (i64::from(membership[first][index])
+                                - i64::from(membership[second][index]));
                 }
-                let spread = neighborhood_spread(&trial);
+                let spread =
+                    neighborhood_imbalance(&trial, config.neighborhood_yield_tolerance_percent);
                 if spread < current && best.as_ref().is_none_or(|value| spread < value.0) {
-                    best = Some((spread, first, second, trial));
+                    best = Some((spread, first, second, trial.clone()));
                 }
             }
         }
@@ -842,19 +853,29 @@ fn balance_home_neighborhoods(
         planets[second].population_capacity = old.2;
         sums = next_sums;
     }
-    Err(GenerationError::NoFairHomeworldSet)
+    if neighborhood_imbalance(&sums, config.neighborhood_yield_tolerance_percent) == 0 {
+        Ok(())
+    } else {
+        Err(GenerationError::NoFairHomeworldSet)
+    }
 }
 
-fn neighborhood_spread(sums: &[i64]) -> u128 {
-    let total: i64 = sums.iter().sum();
+// Minimize the sum of squared relative excesses outside the fairness band.
+// Improving one outlier can then make progress even if another remains worse.
+fn neighborhood_imbalance(sums: &[i64], tolerance_percent: u32) -> u128 {
+    let total: i128 = sums.iter().map(|&sum| i128::from(sum)).sum();
     if total <= 0 {
         return u128::MAX;
     }
-    let count = sums.len() as i64;
+    let count = sums.len() as i128;
+    let allowed = (total * i128::from(tolerance_percent)) as u128;
     sums.iter()
-        .map(|sum| (sum * count - total).unsigned_abs() as u128 * 1_000_000 / total as u128)
-        .max()
-        .unwrap_or(u128::MAX)
+        .map(|&sum| {
+            let deviation = (i128::from(sum) * count - total).unsigned_abs() * 100;
+            let excess = (deviation.saturating_sub(allowed) * 10_000).div_ceil(total as u128);
+            excess * excess
+        })
+        .sum()
 }
 
 /// Ensures there is a connected route using only unblocked lanes that avoid
@@ -878,10 +899,16 @@ fn ensure_clear_routes(
             components.union(lane.a as usize, lane.b as usize);
         }
     }
+    if components.count == 1 {
+        return Ok(());
+    }
 
     let mut candidates = Vec::new();
     for a in 0..systems.len() {
         for b in a + 1..systems.len() {
+            if degree[a] >= 5 || degree[b] >= 5 || components.same(a, b) {
+                continue;
+            }
             let first = systems[a].position;
             let second = systems[b].position;
             let length = distance(first, second);
@@ -1084,14 +1111,14 @@ fn select_homes(
         if chosen.len() != civ_count {
             continue;
         }
-        let neighborhood_mean = chosen
+        let neighborhood_total = chosen
             .iter()
             .map(|id| neighborhoods[*id as usize])
-            .sum::<u64>()
-            / chosen.len() as u64;
+            .sum::<u64>();
+        let home_count = chosen.len() as u64;
         let neighborhood_deviation = chosen
             .iter()
-            .map(|id| neighborhoods[*id as usize].abs_diff(neighborhood_mean))
+            .map(|id| (neighborhoods[*id as usize] * home_count).abs_diff(neighborhood_total))
             .max()
             .unwrap_or(0);
         let t0_deviation = chosen
@@ -1106,13 +1133,10 @@ fn select_homes(
             })
             .max()
             .unwrap_or(u64::MAX);
-        if !chosen.iter().all(|id| {
-            percent_deviation_within(
-                neighborhoods[*id as usize],
-                neighborhood_mean,
-                config.neighborhood_yield_tolerance_percent,
-            )
-        }) {
+        if u128::from(neighborhood_deviation) * 100
+            > u128::from(neighborhood_total)
+                * u128::from(config.neighborhood_yield_tolerance_percent)
+        {
             continue;
         }
         let score = (
@@ -1168,13 +1192,6 @@ fn territory_tolerance_units(total_value: u64, target_milli: u32, tolerance_perc
     (u128::from(total_value) * u128::from(target_milli / 1_000) * u128::from(tolerance_percent)
         / 100)
         .min(u128::from(u64::MAX)) as u64
-}
-
-fn percent_deviation_within(value: u64, mean: u64, tolerance_percent: u32) -> bool {
-    if mean == 0 {
-        return value == 0;
-    }
-    u128::from(value.abs_diff(mean)) * 100 <= u128::from(mean) * u128::from(tolerance_percent)
 }
 
 fn all_pairs_distances(systems: &[SystemState], lanes: &[LaneState]) -> Vec<Vec<u32>> {
@@ -1326,12 +1343,152 @@ mod tests {
         ));
     }
 
+    fn civilization_ids(count: usize) -> Vec<String> {
+        (0..count).map(|index| format!("team_{index:02}")).collect()
+    }
+
     #[test]
-    fn same_seed_and_civ_set_produce_same_map() {
-        let civs: Vec<String> = (0..8).map(|index| format!("team_{index:02}")).collect();
+    fn same_seed_and_civ_set_produce_same_map_and_hash() {
+        let mut civs = civilization_ids(8);
         let config = GalaxyConfig::default();
         let first = generate(&config, &civs).expect("map generation succeeds");
+        civs.reverse();
         let second = generate(&config, &civs).expect("map generation succeeds");
         assert_eq!(first, second);
+        assert_eq!(
+            crate::hashing::state_hash(&first).unwrap(),
+            crate::hashing::state_hash(&second).unwrap(),
+        );
+    }
+
+    #[test]
+    fn generated_maps_meet_m2_constraints() {
+        for (seed, count) in [(0, 8), (42, 8), (17, 12), (42, 20), (99, 20)] {
+            let config = GalaxyConfig {
+                seed,
+                ..GalaxyConfig::default()
+            };
+            let map = generate(&config, &civilization_ids(count))
+                .unwrap_or_else(|error| panic!("seed {seed}, {count} civs: {error:?}"));
+            assert_eq!(map.seed, seed + u64::from(map.generation_attempts));
+            assert!(map.generation_attempts < config.retry_limit);
+            assert_map_constraints(&map, count);
+        }
+    }
+
+    fn assert_map_constraints(map: &GalaxyState, count: usize) {
+        let system_count = map.systems.len();
+        assert!((18 * count..=22 * count).contains(&system_count));
+        assert_eq!(map.planets.len(), (5 * system_count).div_ceil(2));
+        assert_eq!(map.hazards.len(), system_count.div_ceil(20));
+        assert_eq!(map.core.radius, 150);
+        for system in &map.systems {
+            assert!((1..=4).contains(&system.planet_ids.len()));
+            assert!((3..=5).contains(&system.lane_ids.len()));
+        }
+
+        let mut clear_lanes = Vec::new();
+        for lane in &map.lanes {
+            let a = map.systems[lane.a as usize].position;
+            let b = map.systems[lane.b as usize].position;
+            assert!(lane.length <= 700);
+            assert!(!segment_intersects_circle(
+                a,
+                b,
+                map.core.center,
+                map.core.radius
+            ));
+            let intersects = |kind| {
+                map.hazards.iter().any(|zone| {
+                    zone.kind == kind && segment_intersects_circle(a, b, zone.center, zone.radius)
+                })
+            };
+            if intersects(HazardKind::Void) {
+                assert!(lane.blocked);
+                assert_eq!(lane.hazard, LaneHazard::Void);
+            } else if intersects(HazardKind::Nebula) {
+                assert!(!lane.blocked);
+                assert_eq!(lane.hazard, LaneHazard::Nebula);
+                assert!((3..=8).contains(&lane.travel_ticks));
+            } else {
+                assert!(!lane.blocked);
+                assert_eq!(lane.hazard, LaneHazard::None);
+                assert!((1..=6).contains(&lane.travel_ticks));
+                clear_lanes.push(lane.clone());
+            }
+        }
+        assert!(is_connected(system_count, &clear_lanes));
+
+        let distances = all_pairs_distances(&map.systems, &map.lanes);
+        let total_yield: u64 = map
+            .planets
+            .iter()
+            .map(|planet| u64::from(planet.base_yield))
+            .sum();
+        assert_eq!(map.civilizations.len(), count);
+        let mut neighborhood_yields = Vec::new();
+        for (index, civ) in map.civilizations.iter().enumerate() {
+            let home = civ.home_system as usize;
+            let home_planets = &map.systems[home].planet_ids;
+            assert_eq!(home_planets.len(), 4);
+            let home_yield: u64 = home_planets
+                .iter()
+                .map(|id| {
+                    let planet = &map.planets[*id as usize];
+                    assert_eq!(planet.owner, Some(civ.id));
+                    u64::from(planet.base_yield)
+                })
+                .sum();
+            let target = total_yield * 150;
+            let actual = home_yield * count as u64 * 1_000;
+            assert!(actual.abs_diff(target) * 100 <= target * 5);
+            for other in &map.civilizations[..index] {
+                assert!(distances[home][other.home_system as usize] >= 5);
+            }
+            neighborhood_yields.push(
+                map.planets
+                    .iter()
+                    .filter(|planet| distances[home][planet.system_id as usize] <= 3)
+                    .map(|planet| u64::from(planet.base_yield))
+                    .sum::<u64>(),
+            );
+        }
+        let total = neighborhood_yields.iter().sum::<u64>();
+        assert!(neighborhood_yields
+            .iter()
+            .all(|value| (value * count as u64).abs_diff(total) * 100 <= total * 10));
+        assert_eq!(
+            map.planets
+                .iter()
+                .filter(|planet| planet.owner.is_some())
+                .count(),
+            count * 4
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_rosters_and_exhausted_retry_budget() {
+        let config = GalaxyConfig::default();
+        for count in [7, 21] {
+            assert_eq!(
+                generate(&config, &civilization_ids(count)),
+                Err(GenerationError::InvalidCivCount)
+            );
+        }
+        let mut civs = civilization_ids(8);
+        civs[7] = civs[0].clone();
+        assert_eq!(
+            generate(&config, &civs),
+            Err(GenerationError::DuplicateCivId)
+        );
+        let config = GalaxyConfig {
+            retry_limit: 1,
+            minimum_home_distance: u32::MAX,
+            ..config
+        };
+        assert_eq!(
+            generate(&config, &civilization_ids(8)),
+            Err(GenerationError::RetryLimitExceeded)
+        );
     }
 }

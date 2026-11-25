@@ -28,8 +28,10 @@ cargo test --workspace
 cargo run -p params-check -- params.toml
 ```
 
-Implemented so far: workspace setup (M0), API v0.4 contracts and schemas
-(M1), and the deterministic map-generation foundation (M2). The server,
-simulation tick loop, replay verifier, and spectator dashboard are not yet
-complete. See the v0.4 specification for the acceptance criteria and milestone
-order.
+M0 (workspace setup), M1 (API v0.4 contracts and schemas), and M2
+(deterministic map generation) are complete. The [M2 map-generation
+notes](docs/M2-mapgen-proposal.md) document the defaults, fairness checks, and
+verification command.
+
+The simulation tick loop and match orchestration are still in progress.
+Replay verification and the spectator dashboard are scheduled for M6 and M7.

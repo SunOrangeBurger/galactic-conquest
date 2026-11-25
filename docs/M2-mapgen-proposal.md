@@ -48,13 +48,16 @@ fairness. The owner approved this procedure:
    four planets on widely spaced candidate hubs, then distribute the remainder
    by seeded shuffle. Swap richness classes with other planets to make the hubs
    T0-eligible while preserving galaxy-wide richness totals. Balance their
-   three-hop neighborhood yields by deterministic richness swaps, then run
-   final home selection and fairness checks.
+   three-hop neighborhood yields by deterministic richness swaps. Prefer the
+   swap that most reduces the sum of squared relative deviations beyond the
+   allowed band, with ties resolved by ascending planet ID. Then run final
+   home selection and fairness checks.
 5. Choose home systems with deterministic farthest-point selection, stable-id
-   tie breaks, and a five-hop minimum. Among feasible sets, prefer the set
-   minimizing the largest absolute home-neighborhood-yield deviation, then
-   the largest T0 deviation. Reject and reseed if either fairness threshold
-   fails.
+   tie breaks, and a five-hop minimum. Among feasible sets, prefer greater
+   minimum spacing, then lower maximum home-neighborhood yield deviation,
+   then lower maximum T0 deviation. Reject and reseed if either fairness
+   threshold fails. The 10% neighborhood tolerance uses the exact mean of the
+   selected homes' neighborhood yields.
 6. Retry failed seeds using monotonically increasing sub-seeds, with a cap
    of 10,000 attempts; report a generation error if none passes.
 7. After hazard placement, ensure a connected route made entirely of
@@ -64,5 +67,22 @@ fairness. The owner approved this procedure:
    the central core and around slower nebula lanes.
 
 The outer attempt uses the match seed for attempt zero and `seed + attempt`
-for later attempts, with checked integer addition. The match header records
-the final sub-seed and the number of retries.
+for later attempts, with checked integer addition. The generated state exposes
+the final sub-seed as `seed` and the number of retries as
+`generation_attempts` for the future match header.
+
+## Verification
+
+```sh
+cargo test --locked -p sim galaxy::tests
+```
+
+The tests exercise five seed and roster combinations across 8, 12, and 20
+civilizations. They check map size, lane degree and travel times, hazard
+classification, connectivity through clear lanes, home ownership, and the
+spacing and yield tolerances. They also check that reordering the same
+civilization IDs preserves the generated state and its hash, and that invalid
+rosters and retry exhaustion return errors.
+
+The balancing objective can change the map produced by a seed compared with
+earlier commits. The generator uses `GalaxyConfig` defaults for these tests.

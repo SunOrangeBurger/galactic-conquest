@@ -33,5 +33,8 @@ M0 (workspace setup), M1 (API v0.4 contracts and schemas), and M2
 notes](docs/M2-mapgen-proposal.md) document the defaults, fairness checks, and
 verification command.
 
+See [Phase 0 progress](docs/PROGRESS.md) for the milestone estimate and
+deviations from the plan.
+
 The simulation tick loop and match orchestration are still in progress.
 Replay verification and the spectator dashboard are scheduled for M6 and M7.
